@@ -1,2 +1,5 @@
 node_modules/
 *.log
+README-test.md
+data.json
+topics.md
