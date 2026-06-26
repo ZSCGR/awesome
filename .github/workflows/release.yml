@@ -45,12 +45,14 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           
-          # 2. 读取最近一次的 Commit 消息，判断版本升级类型
+          # 2. 解析约定式提交（Conventional Commits）规范判断升级类型
           COMMIT_MSG=$(git log -1 --pretty=%B)
-          if echo "$COMMIT_MSG" | grep -iq "\[major\]"; then
+          if echo "$COMMIT_MSG" | grep -iqE "BREAKING CHANGE|^[a-zA-Z0-9_-]+(\(.*\))?!:"; then
             BUMP_TYPE="major"
-          elif echo "$COMMIT_MSG" | grep -iq "\[minor\]"; then
+          elif echo "$COMMIT_MSG" | grep -iqE "^feat(\(.*\))?:"; then
             BUMP_TYPE="minor"
+          elif echo "$COMMIT_MSG" | grep -iqE "^fix(\(.*\))?:"; then
+            BUMP_TYPE="patch"
           else
             BUMP_TYPE="patch"
           fi
