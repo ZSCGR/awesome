@@ -38,10 +38,40 @@ jobs:
           git checkout -- package-lock.json || true
           git status
 
-      # 6. 原生安全语义化发版（完全避免依赖任何易被劫持的第三方 Action）
-      - name: Automated Semantic Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+      # 6. 自定义版本递增与推送逻辑（免去外部 Release 工具，100% 安全且自主可控）
+      - name: Auto Version Bump & Push
         run: |
-          npm install --no-save semantic-release @semantic-release/changelog @semantic-release/git @semantic-release/github
-          npx semantic-release
+          # 1. 配置 Git 机器人身份
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # 2. 读取最近一次的 Commit 消息，判断版本升级类型
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          if echo "$COMMIT_MSG" | grep -iq "\[major\]"; then
+            BUMP_TYPE="major"
+          elif echo "$COMMIT_MSG" | grep -iq "\[minor\]"; then
+            BUMP_TYPE="minor"
+          else
+            BUMP_TYPE="patch"
+          fi
+          
+          echo "Latest commit message: $COMMIT_MSG"
+          echo "Detected version bump type: $BUMP_TYPE"
+          
+          # 3. 自动递增 package.json 版本并创建提交（标记 [skip ci] 防止无限循环触发工作流）
+          NEW_VERSION=$(npm version $BUMP_TYPE -m "chore(release): v%s [skip ci]")
+          echo "New Version: $NEW_VERSION"
+          
+          # 4. 重新打包最新代码，确保 dist/index.js 是最新的
+          npm run build
+          
+          # 5. 将 dist 编译产物合并追加提交到刚才的版本 commit 中，保持提交历史整洁
+          git add dist/
+          git commit --amend --no-edit
+          
+          # 6. 强制更新大版本 Tag（例如 v1），让引用 @v1 的用户自动使用最新代码
+          MAJOR_VERSION=$(echo "$NEW_VERSION" | cut -d. -f1)
+          git tag -f "$MAJOR_VERSION" HEAD
+          
+          # 7. 推送 Commit 和所有 tags 到 GitHub 远程仓库
+          git push origin main --follow-tags --force
