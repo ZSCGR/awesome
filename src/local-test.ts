@@ -22,6 +22,7 @@ async function runLocal() {
 
   // 模拟 Git 提交逻辑（本地测试时不进行真正的 remote push）
   git.pushNewFiles = async (files) => {
+    if (!files) return;
     console.log('\n==========================================');
     console.log('⚡ [本地模拟] 拦截远程 Git 提交，直接写入本地文件:');
     console.log('==========================================');
