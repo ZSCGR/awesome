@@ -38,10 +38,10 @@ jobs:
           git checkout -- package-lock.json || true
           git status
 
-      # 6. 官方正统语义化发版动作（完全替代原作者可能投毒的旧 Action）
+      # 6. 原生安全语义化发版（完全避免依赖任何易被劫持的第三方 Action）
       - name: Automated Semantic Release
-        uses: codfish/semantic-release-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-          GIT_AUTHOR_NAME: '${{ github.actor }}'
-          GIT_COMMITTER_NAME: '${{ github.actor }}'
+        run: |
+          npm install --no-save semantic-release @semantic-release/changelog @semantic-release/git @semantic-release/github
+          npx semantic-release
