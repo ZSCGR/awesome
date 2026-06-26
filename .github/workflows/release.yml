@@ -7,6 +7,10 @@ on:
       - main
   workflow_dispatch: # 保留手动触发按钮，方便你在网页端随时手动补发版本
 
+# 授予工作流向仓库写入 Commit、Tag 和 Release 的权限
+permissions:
+  contents: write
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -40,12 +44,14 @@ jobs:
 
       # 6. 自定义版本递增与推送逻辑（免去外部 Release 工具，100% 安全且自主可控）
       - name: Auto Version Bump & Push
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           # 1. 配置 Git 机器人身份
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           
-          # 2. 解析约定式提交（Conventional Commits）规范判断升级类型
+          # 2. 读取最近一次的 Commit 消息，判断版本升级类型
           COMMIT_MSG=$(git log -1 --pretty=%B)
           if echo "$COMMIT_MSG" | grep -iqE "BREAKING CHANGE|^[a-zA-Z0-9_-]+(\(.*\))?!:"; then
             BUMP_TYPE="major"
@@ -71,9 +77,16 @@ jobs:
           git add dist/
           git commit --amend --no-edit
           
-          # 6. 强制更新大版本 Tag（例如 v1），让引用 @v1 的用户自动使用最新代码
-          MAJOR_VERSION=$(echo "$NEW_VERSION" | cut -d. -f1)
-          git tag -f "$MAJOR_VERSION" HEAD
+          # 6. 删除 npm version 默认在旧 Commit 上创建的旧 Tag，并在新 Commit (HEAD) 上重新打附注 Tag
+          git tag -d "$NEW_VERSION"
+          git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION"
           
-          # 7. 推送 Commit 和所有 tags 到 GitHub 远程仓库
-          git push origin main --follow-tags --force
+          # 7. 强制创建并更新大版本附注 Tag（例如 v1）
+          MAJOR_VERSION=$(echo "$NEW_VERSION" | cut -d. -f1)
+          git tag -f -a "$MAJOR_VERSION" -m "Release $MAJOR_VERSION"
+          
+          # 8. 强制推送 Commit 和所有的 tags
+          git push origin main --tags --force
+          
+          # 9. 使用 GitHub 官方 CLI 自动创建 Release 发布包
+          gh release create "$NEW_VERSION" --title "$NEW_VERSION" --notes "Release version $NEW_VERSION" || true
