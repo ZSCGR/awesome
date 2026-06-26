@@ -1,0 +1,21 @@
+name: 'Mawesome'
+description: 'Generate awesome list from user starred repositories'
+author: 'ZSCGR'
+inputs:
+  api-token:
+    description: 'GitHub API Token'
+    required: true
+  output-filename:
+    description: 'The output filename'
+    required: false
+    default: 'README.md'
+  template-path:
+    description: 'The path to the custom template file'
+    required: false
+  compact-by-topic:
+    description: 'Generate a topics.md file'
+    required: false
+    default: 'false'
+runs:
+  using: 'node24'
+  main: 'dist/index.js'

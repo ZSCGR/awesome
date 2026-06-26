@@ -1,0 +1,47 @@
+name: Automated Release
+
+# 触发条件：当 main 分支有代码推送（或 PR 合并）时自动运行
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # 保留手动触发按钮，方便你在网页端随时手动补发版本
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. 签出代码
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_TOKEN }} # 必须使用你配置的具有写权限的私密 Token
+          persist-credentials: true
+
+      # 2. 设置安全的 Node 24 环境
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # 3. 安装依赖（使用 --no-audit 提速，仅安装，不执行可疑的审计脚本）
+      - name: Install dependencies
+        run: npm i --no-audit
+
+      # 4. 执行 ncc 编译，将最新代码融合成单文件 index.js
+      - name: Build Code
+        run: npm run build
+
+      # 5. 核心防御：强行清洗工作区
+      # 这样可以百分之百确保原作者配置的 backmerge 插件在自动反向合并（如 main 合回 dev）时，
+      # 不会因为本地临时修改了 package-lock.json 而报“You have unstaged changes”导致的流产
+      - name: Hard Clean Workspace for Backmerge
+        run: |
+          git checkout -- package-lock.json || true
+          git status
+
+      # 6. 官方正统语义化发版动作（完全替代原作者可能投毒的旧 Action）
+      - name: Automated Semantic Release
+        uses: codfish/semantic-release-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GIT_AUTHOR_NAME: '${{ github.actor }}'
+          GIT_COMMITTER_NAME: '${{ github.actor }}'
